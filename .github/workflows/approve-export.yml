@@ -1,0 +1,57 @@
+name: Approve & Export
+
+on:
+  workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: "Numeric run ID from a successful Daily Preview run"
+        required: true
+        type: string
+      approve:
+        description: "Set to true only after reviewing the preview"
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  export:
+    if: ${{ inputs.approve == true }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Download reviewed script from source run
+        uses: actions/download-artifact@v4
+        with:
+          name: daily-preview
+          run-id: ${{ inputs.source_run_id }}
+          github-token: ${{ github.token }}
+          path: reviewed
+
+      - name: Render final export
+        run: python scripts/render.py --script reviewed/script.json --output final.mp4
+
+      - name: Upload approved final video
+        uses: actions/upload-artifact@v4
+        with:
+          name: approved-final-video
+          path: final.mp4
+          retention-days: 30
+
+      - name: Approval confirmation
+        run: echo "Approved final video rendered and uploaded as an artifact."
