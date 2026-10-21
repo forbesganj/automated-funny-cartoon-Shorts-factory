@@ -1,0 +1,42 @@
+name: Daily Preview
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 8 * * *" # 08:00 UTC = 13:30 India time
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  create-preview:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Generate today's script
+        run: python scripts/story.py "$(date -u +%F)" script.json
+
+      - name: Render preview video
+        run: python scripts/render.py --script script.json --output preview.mp4
+
+      - name: Upload preview for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: daily-preview
+          path: |
+            preview.mp4
+            script.json
+          retention-days: 7
